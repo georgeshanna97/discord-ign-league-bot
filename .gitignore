@@ -1,6 +1,10 @@
 #java
 .idea
 /target
+/prop.properties
 
 #maven
 /discordignbot.iml
+
+#git
+.gitattributes
