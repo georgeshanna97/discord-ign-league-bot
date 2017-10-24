@@ -34,6 +34,7 @@ public class CommandProcessor{
             channel.sendMessage(id.toString());
         }catch(RiotApiException r) {
             if(r.DATA_NOT_FOUND == 404) {
+                channel.sendMessage("NA, Account does not exist");
             }
         }
 
