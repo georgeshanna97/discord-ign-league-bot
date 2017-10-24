@@ -9,6 +9,7 @@ import java.io.IOException;
  class Setup {
 
     private String token;
+    private String keyAPI;
 
     protected Setup() throws IOException {
 
@@ -17,16 +18,21 @@ import java.io.IOException;
 
         if(!bot.exists()){
             prop.setProperty("token", " your bot token goes here");
+            prop.setProperty("API", "your riot api goes here");
             prop.store(new FileOutputStream(bot), "Bot Settings");
             System.out.printf("Modify this file");
             System.exit(1);
         }
         prop.load(new FileInputStream(bot));
 
-        System.out.println(prop.get("token"));
        this.token = prop.getProperty("token");
+       this.keyAPI = prop.getProperty("API");
     }
      String getToken() {
         return token;
     }
-}
+
+    String getAPI(){
+     return keyAPI;
+    }
+ }
