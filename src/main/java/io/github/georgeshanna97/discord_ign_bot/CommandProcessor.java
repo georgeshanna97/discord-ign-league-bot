@@ -20,6 +20,7 @@ import net.rithms.riot.api.endpoints.league.dto.LeagueList;
 import net.rithms.riot.api.endpoints.summoner.dto.Summoner;
 import net.rithms.riot.constant.Platform;
 import com.google.gson.*;
+import sx.blah.discord.util.RateLimitException;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -29,19 +30,20 @@ import java.util.*;
 
 import java.io.IOException;
 
-public class CommandProcessor{
+public class CommandProcessor {
 
-    private static Pattern command = Pattern.compile("\\s*(~)(.*)\\s*$");
+    private static Pattern command = Pattern.compile("^\\s*(~)([a-zA-Z0-9]*)(,solo|,flex)?\\s*$");
+    private static boolean solo_or_flex = true;
     private static File image;
+    private static String spacing;
 
 
-
-    public static String getApiKey() throws IOException{
+    public static String getApiKey() throws IOException {
         Setup setup = new Setup();
         return setup.getLeagueAPI();
     }
 
-    public static void processCommand(IMessage message, String prefix) throws IOException, RiotApiException{
+    public static void processCommand(IMessage message, String prefix) throws IOException, RiotApiException, RateLimitException {
         @SuppressWarnings("unused")
         IUser sender = message.getAuthor();
         ApiConfig config = new ApiConfig().setKey(getApiKey());
@@ -50,52 +52,75 @@ public class CommandProcessor{
         Matcher m = command.matcher(readM);
         IChannel channel = message.getChannel();
         try {
-            if(m.matches()) {
+            if (m.matches()) {
                 Summoner summoner = api.getSummonerByName(Platform.NA, m.group(2));
                 Set<LeaguePosition> leagueList = api.getLeaguePositionsBySummonerId(Platform.NA, summoner.getId());
-                if(leagueList.isEmpty()) leagueList = null;
+                if(m.group(3) != null && m.group(3).equals(",flex")) solo_or_flex = false;
+                if (leagueList.isEmpty()) leagueList = null;
                 if (leagueList != null) {
                     for (LeaguePosition league : leagueList) {
                         String queue = league.getQueueType();
-                        if (queue.equals("RANKED_SOLO_5x5")) {
-                            if(league.getTier().equals("CHALLENGER")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\challenger_1.png");
-                            }else if(league.getTier().equals("MASTER")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\master_1.png");
-                            }else if(league.getTier().equals("DIAMOND")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\diamond_1.png");
-                            }else if(league.getTier().equals("PLATINUM")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\platinum_1.png");
-                            }else if(league.getTier().equals("GOLD")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\gold_1.png");
-                            }else if(league.getTier().equals("SILVER")){
-                                image =new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\silver_1.png");
-                            }else {
-                                image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\bronze_1.png");
-                            }
-                                channel.sendMessage(sender.mention());
-                                channel.sendFile(image);
-                                channel.sendMessage(
-                                        "**\t\t\t\t" + league.getTier() + " " + league.getRank() + "\n" +
-                                                "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
-                                                "" + summoner.getSummonerLevel() + "**" );
-                            }
+                        if (queue.equals("RANKED_SOLO_5x5") && solo_or_flex) {
+                            findRankPNG(league);
+                            channel.sendMessage(sender.mention());
+                            channel.sendFile(image);
+                            channel.sendMessage(
+                                    "**" + spacing + "" + league.getTier() + " " + league.getRank() + "\n" +
+                                            "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
+                                            "" + summoner.getSummonerLevel() + "**");
+
+                        }else if(queue.equals("RANKED_FLEX_SR") && !solo_or_flex){
+                            findRankPNG(league);
+                            channel.sendMessage(sender.mention());
+                            channel.sendFile(image);
+                            channel.sendMessage(
+                                    "**" + spacing + "" + league.getTier() + " " + league.getRank() + "\n" +
+                                            "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
+                                            "" + summoner.getSummonerLevel() + "**");
                         }
-                    }else{
-                        image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\unranked.png");
-                        channel.sendMessage(sender.mention());
-                        channel.sendFile(image);
-                        channel.sendMessage("**\t\t\t\t\tLEVEL: " + summoner.getSummonerLevel() + "**");
                     }
+                } else {
+                    image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\unranked.png");
+                    channel.sendMessage(sender.mention());
+                    channel.sendFile(image);
+                    channel.sendMessage("**\t\t\t\t\t\tLEVEL: " + summoner.getSummonerLevel() + "**");
                 }
-        }catch(RiotApiException r) {
+            }
+        } catch (RiotApiException r) {
             if (r.getErrorCode() == 404) {
                 channel.sendMessage(r.getMessage());
                 channel.sendMessage("NA, Account does not exist");
-            }else if(r.getErrorCode() == 403){
+            } else if (r.getErrorCode() == 403) {
                 channel.sendMessage("API key expired");
             }
+        } catch (RateLimitException r) {
+            throw r;
         }
 
+    }
+
+    public static void findRankPNG(LeaguePosition league) {
+        if (league.getTier().equals("CHALLENGER")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\challenger_1.png");
+            spacing = "\t\t\t\t";
+        } else if (league.getTier().equals("MASTER")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\master_1.png");
+            spacing = "\t\t\t\t\t";
+        } else if (league.getTier().equals("DIAMOND")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\diamond_1.png");
+            spacing = "\t\t\t\t";
+        } else if (league.getTier().equals("PLATINUM")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\platinum_1.png");
+            spacing = "\t\t\t\t";
+        } else if (league.getTier().equals("GOLD")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\gold_1.png");
+            spacing = "\t\t\t\t\t";
+        } else if (league.getTier().equals("SILVER")) {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\silver_1.png");
+            spacing = "\t\t\t\t\t";
+        } else {
+            image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\bronze_1.png");
+            spacing = "\t\t\t\t\t";
+        }
     }
 }
