@@ -16,6 +16,6 @@ public class MainBot {
         build.withToken(setup.getToken());
         IDiscordClient client = build.login();
         EventDispatcher dispatch = client.getDispatcher();
-        dispatch.registerListener(new EventListener());
+        dispatch.registerListener(new EventListener(client));
     }
 }

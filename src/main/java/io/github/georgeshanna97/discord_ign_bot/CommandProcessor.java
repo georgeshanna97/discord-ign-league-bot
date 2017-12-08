@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import net.rithms.riot.api.endpoints.league.dto.LeaguePosition;
 import org.json.JSONArray;
+import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.handle.obj.IChannel;
 import sx.blah.discord.handle.obj.IMessage;
 import sx.blah.discord.handle.obj.IUser;
@@ -20,6 +21,7 @@ import net.rithms.riot.api.endpoints.league.dto.LeagueList;
 import net.rithms.riot.api.endpoints.summoner.dto.Summoner;
 import net.rithms.riot.constant.Platform;
 import com.google.gson.*;
+import sx.blah.discord.util.MessageBuilder;
 import sx.blah.discord.util.RateLimitException;
 
 import javax.imageio.ImageIO;
@@ -35,6 +37,7 @@ public class CommandProcessor {
     private static Pattern command = Pattern.compile("^\\s*(~)([a-zA-Z0-9]*)(,solo|,flex)?\\s*$");
     private static boolean solo_or_flex = true;
     private static File image;
+    private static MessageBuilder response;
     private static String spacing;
 
 
@@ -43,14 +46,16 @@ public class CommandProcessor {
         return setup.getLeagueAPI();
     }
 
-    public static void processCommand(IMessage message, String prefix) throws IOException, RiotApiException, RateLimitException {
+    public static void processCommand(IMessage message, String prefix, IDiscordClient client) throws IOException, RiotApiException, RateLimitException {
         @SuppressWarnings("unused")
         IUser sender = message.getAuthor();
+        response = new MessageBuilder(client);
         ApiConfig config = new ApiConfig().setKey(getApiKey());
         RiotApi api = new RiotApi(config);
         String readM = message.toString();
         Matcher m = command.matcher(readM);
         IChannel channel = message.getChannel();
+        response.withChannel(channel);
         try {
             if (m.matches()) {
                 Summoner summoner = api.getSummonerByName(Platform.NA, m.group(2));
@@ -62,28 +67,29 @@ public class CommandProcessor {
                         String queue = league.getQueueType();
                         if (queue.equals("RANKED_SOLO_5x5") && solo_or_flex) {
                             findRankPNG(league);
-                            channel.sendMessage(sender.mention());
-                            channel.sendFile(image);
-                            channel.sendMessage(
+                            response.withFile(image);
+                            response.withContent(sender.mention() + "\n" +
                                     "**" + spacing + "" + league.getTier() + " " + league.getRank() + "\n" +
-                                            "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
-                                            "" + summoner.getSummonerLevel() + "**");
+                                    "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
+                                    "" + summoner.getSummonerLevel() + "**");
+                            response.build();
 
                         }else if(queue.equals("RANKED_FLEX_SR") && !solo_or_flex){
                             findRankPNG(league);
-                            channel.sendMessage(sender.mention());
-                            channel.sendFile(image);
-                            channel.sendMessage(
+                            response.withFile(image);
+                            response.withContent(""+ sender.mention() + "\n" +
                                     "**" + spacing + "" + league.getTier() + " " + league.getRank() + "\n" +
-                                            "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
-                                            "" + summoner.getSummonerLevel() + "**");
+                                    "\t\t\t\t\t\t" + league.getLeaguePoints() + " LP \n\t\t\t\t\tLEVEL: " +
+                                    "" + summoner.getSummonerLevel() + "**");
+                            response.build();
                         }
                     }
                 } else {
                     image = new File("C:\\Users\\Georges\\DiscordBots\\discordignbot\\LoLRankPng\\unranked.png");
-                    channel.sendMessage(sender.mention());
-                    channel.sendFile(image);
-                    channel.sendMessage("**\t\t\t\t\t\tLEVEL: " + summoner.getSummonerLevel() + "**");
+                    response.withFile(image);
+                    response.withContent(sender.mention() +"\n" +
+                            "**\t\t\t\t\t\tLEVEL: " + summoner.getSummonerLevel() + "**");
+                    response.build();
                 }
             }
         } catch (RiotApiException r) {
